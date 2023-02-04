@@ -1,8 +1,9 @@
 import {
-  AnyWrapper,
+  AnyMiddleware,
+  MergeLeft,
   Handler,
-  inferWrapperHandler,
-  inferWrapperReq,
+  inferMiddlewareHandler,
+  inferMiddlewareReq,
 } from "./types";
 
 /**
@@ -11,48 +12,46 @@ import {
  * @param b - the inner wrapper
  * @returns
  */
-export const mergeWrappers =
-  <A extends AnyWrapper, B extends AnyWrapper>(a: A, b: B) =>
-  (handler: Handler<inferWrapperReq<A> & inferWrapperReq<B>>) => {
+export const mergeMiddleware =
+  <A extends AnyMiddleware, B extends AnyMiddleware>(a: A, b: B) =>
+  (
+    handler: Handler<MergeLeft<inferMiddlewareReq<A>, inferMiddlewareReq<B>>>
+  ) => {
     return a(b(handler));
   };
 
 /**
  * Merges two Next.js API wrappers into one (wrappers applied from right-to-left)
- * @param a - the outer wrapper
- * @param b - the inner wrapper
+ * @param a - the last middleware to be applied
  * @returns
  */
-export const stackWrappers = <A extends AnyWrapper>(a: A) => {
-  const finalHandler = (handler: inferWrapperHandler<A>) => {
-    return a(handler);
+export const stackMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
+  const newHandler = (handler: inferMiddlewareHandler<M1>) => {
+    return middlewareA(handler);
   };
 
-  finalHandler.use = <B extends AnyWrapper>(b: B) =>
-    stackWrappers(mergeWrappers(a, b));
+  newHandler.kind = "stack" as "stack";
 
-  return finalHandler;
+  newHandler.add = <M2 extends AnyMiddleware>(middlewareB: M2) =>
+    stackMiddleware(mergeMiddleware(middlewareA, middlewareB));
+
+  return newHandler;
 };
 
 /**
  * Chains two Next.js API wrappers into one (wrappers applied from left-to-right)
- * @param a - the inner wrapper
+ * @param middlewareA - the firs middleware to be applied
  * @returns
  */
-export const chainWrappers = <A extends AnyWrapper>(a: A) => {
-  const finalHandler = (handler: inferWrapperHandler<A>) => {
-    return a(handler);
+export const chainMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
+  const newHandler = (handler: inferMiddlewareHandler<M1>) => {
+    return middlewareA(handler);
   };
 
-  finalHandler.use = <B extends AnyWrapper>(b: B) =>
-    chainWrappers(mergeWrappers(b, a));
+  newHandler.kind = "chain" as "chain";
 
-  return finalHandler;
+  newHandler.add = <M2 extends AnyMiddleware>(middlewareB: M2) =>
+    chainMiddleware(mergeMiddleware(middlewareB, middlewareA));
+
+  return newHandler;
 };
-
-// or just use a withSelect middleware that takes a handler as argument and executes it depending som
-// selection criteria...
-
-// Or looks like this? TODO
-// thing.use().use().method(..., (req, res) => {}).method(..., (req, res) => {})
-// createHandler<Wrapper>() -> give you handler with typed req and res

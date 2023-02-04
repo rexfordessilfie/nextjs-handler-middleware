@@ -1,12 +1,14 @@
 import { NextApiRequest, NextApiResponse, NextApiHandler } from "next";
 
 export type AnyHandler = Handler<any, any>;
-export type AnyWrapper<H extends AnyHandler = AnyHandler> = (handler: H) => H;
+export type AnyMiddleware<H extends AnyHandler = AnyHandler> = (
+  handler: H
+) => H;
 
 /**
  * Helper type to infer the wrapper's handler argument request type
  */
-export type inferWrapperReq<W extends AnyWrapper> = Parameters<
+export type inferMiddlewareReq<W extends AnyMiddleware> = Parameters<
   Parameters<W>[0]
 >[0];
 
@@ -35,4 +37,8 @@ export type inferCallbackReq<C extends Callback<any, any>> = Parameters<C>[0];
 /**
  * Helper type to infer the wrapper's handler argument request type
  */
-export type inferWrapperHandler<W extends AnyWrapper> = Parameters<W>[0];
+export type inferMiddlewareHandler<W extends AnyMiddleware> = Parameters<W>[0];
+
+export type MergeLeft<T, U> = {
+  [P in keyof T]: P extends keyof U ? U[P] : T[P];
+} & U;

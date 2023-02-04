@@ -1,5 +1,5 @@
-import { NextApiRequest, NextApiResponse, NextApiHandler } from "next";
-import { Callback, Handler, inferCallbackReq } from "./types";
+import { NextApiRequest, NextApiResponse } from "next";
+import { Callback, Handler, inferCallbackReq, MergeLeft } from "./types";
 
 /**
  * Creates a middleware-like wrapper for wrapping Next.js API handlers.
@@ -10,17 +10,18 @@ import { Callback, Handler, inferCallbackReq } from "./types";
  * @returns A wrapper function that takes a Next.js API handler as argument,
  *  and returns the newly wrapped handler
  */
-export function createWrapper<
+export function createMiddleware<
   WReqParams = unknown,
   WResBody = unknown,
-  WReqDeps = unknown
+  WReqDeps = unknown,
+  T = MergeLeft<NextApiRequest, WReqParams & Partial<WReqDeps>>
 >(
   callback: Callback<
-    NextApiRequest & WReqParams & Partial<WReqDeps>,
+    T extends NextApiRequest ? T : NextApiRequest,
     NextApiResponse<WResBody>
   >
 ) {
-  return function wrapper(
+  return function middleware(
     handler: Handler<inferCallbackReq<typeof callback>>
   ): typeof handler {
     // Return a new handler function that executes the
