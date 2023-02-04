@@ -1,7 +1,7 @@
 {
-  "name": "next-api-wrapper",
+  "name": "next-api-middleware",
   "version": "1.0.0",
-  "main": "dist/chainWrappers.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },

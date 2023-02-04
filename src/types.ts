@@ -6,7 +6,7 @@ export type AnyMiddleware<H extends AnyHandler = AnyHandler> = (
 ) => H;
 
 /**
- * Helper type to infer the wrapper's handler argument request type
+ * Helper type to infer the middleware's handler argument request type
  */
 export type inferMiddlewareReq<W extends AnyMiddleware> = Parameters<
   Parameters<W>[0]
@@ -22,7 +22,7 @@ export type Handler<
 > = (req: Req, res: Res) => ReturnType<NextApiHandler>;
 
 /**
- * The wrapper callback type.
+ * The middleware callback type.
  */
 export type Callback<
   Req extends NextApiRequest,
@@ -35,7 +35,7 @@ export type Callback<
 export type inferCallbackReq<C extends Callback<any, any>> = Parameters<C>[0];
 
 /**
- * Helper type to infer the wrapper's handler argument request type
+ * Helper type to infer the middleware's handler argument request type
  */
 export type inferMiddlewareHandler<W extends AnyMiddleware> = Parameters<W>[0];
 
