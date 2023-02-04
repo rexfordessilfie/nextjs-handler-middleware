@@ -2,8 +2,15 @@
 Yet another Next.js middleware library! I made this library because I wanted to learn how to make one, and also to aim for as strong type safety and flexibility as possible.
 
 # Installation
+
+Using npm:
 ```sh 
 npm install next-handler-middleware
+```
+
+Using yarn:
+```sh
+yarn add next-handler-middleware
 ```
 
 # Usage
@@ -12,6 +19,9 @@ npm install next-handler-middleware
 1. Define your middleware
 ```ts
 // lib/logger-middleware.ts
+
+import { createMiddleware } from "next-handler-middleware";
+
 export const loggerMiddleware = createMiddleware<
   { startTime: number },
   { message: string }
@@ -69,6 +79,8 @@ export const authMiddleware = createMiddleware<
 
 ```ts
 // lib/middleware.ts
+import { stackMiddleware } from "next-handler-middleware";
+
 import { loggerMiddleware } from "./logger-middleware";
 import { authMiddleware } from "./auth-middleware";
 
@@ -97,6 +109,7 @@ then have strong type definitions for the request body.
 // lib/validate-body-middleware.ts
 
 import {z} from "zod";
+import {createMiddleware} from "next-handler-middleware";
 
 export const validateBodyMiddleware = (schema: z.Schema) => createMiddleware<
   { body: z.infer<typeof schema> },
