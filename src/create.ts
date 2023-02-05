@@ -1,5 +1,10 @@
-import { NextApiRequest, NextApiResponse } from "next";
-import { Callback, Handler, inferCallbackReq, MergeLeft } from "./types";
+import { NextApiResponse } from "next";
+import {
+  Callback,
+  Handler,
+  inferCallbackReq,
+  ExtendedNextApiRequest,
+} from "./types";
 
 /**
  * Creates a middleware-like functionality for Next.js API handlers.
@@ -13,27 +18,28 @@ import { Callback, Handler, inferCallbackReq, MergeLeft } from "./types";
 export function createMiddleware<
   WReqParams = unknown,
   WResBody = unknown,
-  WReqDeps = unknown,
-  T = MergeLeft<NextApiRequest, WReqParams & Partial<WReqDeps>>
+  WReqDeps = unknown
 >(
   callback: Callback<
-    T extends NextApiRequest ? T : NextApiRequest,
+    ExtendedNextApiRequest<Partial<WReqParams> & Partial<WReqDeps>>,
     NextApiResponse<WResBody>
   >
 ) {
   return function middleware(
-    handler: Handler<inferCallbackReq<typeof callback>>
+    handler: Handler<ExtendedNextApiRequest<Partial<WReqParams>>>
   ): typeof handler {
-    // Return a new handler function that executes the
-    // provided callback
-    return async function newHandler(req, res) {
-      // Define the next() function
+    return async function middlewareHandler(req, res) {
       function next() {
         return handler(req, res);
       }
 
-      // Execute the provided callback
-      return await callback(req, res, next);
+      // Run the callback. Cast req to the type of callback's req
+      // since we assume deps are already attached to the request
+      return await callback(
+        req as inferCallbackReq<typeof callback>,
+        res,
+        next
+      );
     };
   };
 }
