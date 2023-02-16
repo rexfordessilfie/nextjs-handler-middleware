@@ -2,16 +2,7 @@
 Yet another Next.js middleware library! I made this library because I wanted to learn how to make one, and also to aim for as strong type safety and flexibility as possible.
 
 # Installation
-
-Using npm:
-```sh 
-npm install next-handler-middleware
-```
-
-Using yarn:
-```sh
-yarn add next-handler-middleware
-```
+_In Progress: to be published!_
 
 # Usage
 
@@ -56,6 +47,8 @@ export default loggerMiddleware(async (req, res) => {
 
 
 ## Advanced Usage
+Here, we are able to compose several middleware together in a reusable manner. We can develop a base middleware that is used by all routes (e.g for things such as connecting a database, logging requests, rate-limiting etc.), and then extend it with additional middleware for specific routes (e.g for request validation, or pay-walls etc.)
+
 1. Define additional middleware, for example for protected routes
 
 ```ts
@@ -142,3 +135,34 @@ export default middleware(async function handler (req, res) {
     res.status(200).send({ message: `hello ${req.body.name}` }); // req.body is defined and strongly typed by middleware
   });
 ```
+
+# A Note on Types
+The types strategy on this branch automatically makes all middleware request parameter extensions optional to 
+guard against mistakes such as forgetting to set the parameter in the middleware. For example consider the
+following where we forget to set the `emoji` parameter:
+
+```typescript
+const middleware = createMiddleware<
+  { emoji: string },
+  { message: string }
+>(async (req, res, next) => {
+  await next();
+});
+```
+
+When we use this middleware in a handler, the `emoji` parameter will be optional and typescript should complain if we try to do stuff with it. This should help prevent bugs where you possibly forget to set the parameter in the middleware.
+```typescript
+const handler = middleware(async (req, res) => {
+  res.status(200).send({ message: `hello ${req.emoji.toString()}` }); // req.emoji is possibly undefined
+});
+```
+
+If you find this troublesome, you can always fallback to explicitly defining the request parameter type so that it is not optional when used in the handler:
+```typescript
+const middleware = createMiddleware(async (req: NextApiRequest & { emoji: string }, res, next) => {
+  req.emoji = "👋";
+  await next();
+});
+```
+
+In the future, I would love to explore extending something such as eslint, or the typescript compiler type-checker to automatically check that all middleware request parameter extensions are set in the middleware as a way to prevent the possibility of such bugs.
