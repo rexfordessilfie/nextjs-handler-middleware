@@ -1,14 +1,5 @@
 import { NextApiRequest, NextApiResponse, NextApiHandler } from "next";
 
-export type Middleware<H extends Handler = Handler> = (handler: H) => H;
-
-/**
- * Helper type to infer the middleware's handler argument request type
- */
-export type inferMiddlewareReq<M extends Middleware> = Parameters<
-  Parameters<M>[0]
->[0];
-
 /**
  * The handler type. It is the same as the default Next.js handler,
  * but with deeper type inference for request and response.
@@ -17,6 +8,19 @@ export type Handler<
   Req extends NextApiRequest = NextApiRequest,
   Res extends NextApiResponse = NextApiResponse<unknown>
 > = (req: Req, res: Res) => ReturnType<NextApiHandler>;
+
+export type AnyHandler = Handler<any, any>;
+
+export type Middleware<H extends Handler = Handler> = (handler: H) => H;
+
+export type AnyMiddleware = Middleware<AnyHandler>;
+
+/**
+ * Helper type to infer the middleware's handler argument request type
+ */
+export type inferMiddlewareReq<M extends Middleware<any>> = Parameters<
+  Parameters<M>[0]
+>[0];
 
 /**
  * The middleware callback type.
@@ -38,7 +42,7 @@ export type inferCallbackReq<
 /**
  * Helper type to infer the middleware's handler argument request type
  */
-export type inferMiddlewareHandler<W extends Middleware> = Parameters<W>[0];
+export type inferMiddlewareHandler<W extends AnyMiddleware> = Parameters<W>[0];
 
 /**
  * Merge values from U into T, replacing types for existing keys in T with the types of U
@@ -52,13 +56,13 @@ export type MergeLeft<T, U> = {
  * If T contains a type already in NextApiRequest, the type from T will be used.
  */
 export type ExtendedNextApiRequest<
-  T,
+  T extends Record<string, any>,
   Req extends NextApiRequest = NextApiRequest
-> = MergeLeft<Req, T> extends NextApiRequest ? MergeLeft<Req, T> : Req & T;
+> = MergeLeft<Req, T> extends NextApiRequest ? MergeLeft<Req, T> : never;
 
 export type MergedNextApiRequest<
   ReqA extends NextApiRequest,
   ReqB extends NextApiRequest
 > = MergeLeft<ReqA, ReqB> extends NextApiRequest
   ? MergeLeft<ReqA, ReqB>
-  : ReqA & ReqB;
+  : never;

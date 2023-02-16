@@ -4,6 +4,7 @@ import {
   inferMiddlewareHandler,
   inferMiddlewareReq,
   MergedNextApiRequest,
+  AnyMiddleware,
 } from "./types";
 
 /**
@@ -13,7 +14,7 @@ import {
  * @returns
  */
 export const mergeMiddleware =
-  <A extends Middleware, B extends Middleware>(a: A, b: B) =>
+  <A extends Middleware, B extends AnyMiddleware>(a: A, b: B) =>
   (
     handler: Handler<
       MergedNextApiRequest<inferMiddlewareReq<A>, inferMiddlewareReq<B>>
@@ -27,7 +28,7 @@ export const mergeMiddleware =
  * @param a - the last middleware to be applied
  * @returns
  */
-export const stackMiddleware = <M1 extends Middleware>(middlewareA: M1) => {
+export const stackMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
   const newHandler = (handler: inferMiddlewareHandler<M1>) => {
     return middlewareA(handler);
   };
@@ -45,14 +46,14 @@ export const stackMiddleware = <M1 extends Middleware>(middlewareA: M1) => {
  * @param middlewareA - the firs middleware to be applied
  * @returns
  */
-export const chainMiddleware = <M1 extends Middleware>(middlewareA: M1) => {
+export const chainMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
   const newHandler = (handler: inferMiddlewareHandler<M1>) => {
     return middlewareA(handler);
   };
 
   newHandler.kind = "chain" as "chain";
 
-  newHandler.add = <M2 extends Middleware>(middlewareB: M2) =>
+  newHandler.add = <M2 extends AnyMiddleware>(middlewareB: M2) =>
     chainMiddleware(mergeMiddleware(middlewareB, middlewareA));
 
   return newHandler;
