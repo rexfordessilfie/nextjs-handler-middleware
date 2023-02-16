@@ -16,18 +16,15 @@ import {
  *  and returns the newly wrapped handler
  */
 export function createMiddleware<
-  WReqParams = unknown,
+  WReqParams extends Record<string, any> = {},
   WResBody = unknown,
-  WReqDeps = unknown
->(
-  callback: Callback<
-    ExtendedNextApiRequest<Partial<WReqParams> & Partial<WReqDeps>>,
-    NextApiResponse<WResBody>
-  >
-) {
-  return function middleware(
-    handler: Handler<ExtendedNextApiRequest<Partial<WReqParams>>>
-  ): typeof handler {
+  WReqDeps extends Record<string, any> = {},
+  WReq extends ExtendedNextApiRequest<
+    Partial<WReqParams> | WReqParams
+  > = ExtendedNextApiRequest<Partial<WReqParams>>,
+  WRes extends NextApiResponse<WResBody> = NextApiResponse<WResBody>
+>(callback: Callback<WReq & Partial<WReqDeps>, WRes>) {
+  return function middleware(handler: Handler<WReq>): typeof handler {
     return async function middlewareHandler(req, res) {
       function next() {
         return handler(req, res);
@@ -37,7 +34,7 @@ export function createMiddleware<
       // since we assume deps are already attached to the request
       return await callback(
         req as inferCallbackReq<typeof callback>,
-        res,
+        res as WRes,
         next
       );
     };
