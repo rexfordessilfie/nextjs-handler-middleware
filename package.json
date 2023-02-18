@@ -1,12 +1,16 @@
 {
-  "name": "next-handler-middleware",
-  "version": "1.0.0",
+  "name": "nextjs-handler-middleware",
+  "version": "0.1.0",
   "main": "dist/index.js",
-  "repository": "https://github.com/RexfordEssilfie/next-handler-middleware",
+  "repository": "https://github.com/RexfordEssilfie/nextjs-handler-middleware",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "ava"
+    "test": "ava",
+    "prepublish": "npm run build"
   },
+  "files": [
+    "dist"
+  ],
   "ava": {
     "extensions": {
       "ts": "module"

@@ -1,8 +1,15 @@
-# next-handler-middleware
-Yet another Next.js middleware library! I made this library because I wanted to learn how to make one, and also to aim for as strong type safety and flexibility as possible.
+# nextjs-handler-middleware
+A simple Next.js middleware library! I made this library because I wanted to learn how to make one, and also to aim for as strong type inference and modular APIs.
 
 # Installation
-_In Progress: to be published!_
+```bash
+npm install nextjs-handler-middleware
+```
+
+Or if you are using yarn:
+```bash
+yarn add nextjs-handler-middleware
+```
 
 # Usage
 
@@ -11,7 +18,7 @@ _In Progress: to be published!_
 ```ts
 // lib/logger-middleware.ts
 
-import { createMiddleware } from "next-handler-middleware";
+import { createMiddleware } from "nextjs-handler-middleware";
 
 export const loggerMiddleware = createMiddleware<
   { startTime: number },
@@ -72,7 +79,7 @@ export const authMiddleware = createMiddleware<
 
 ```ts
 // lib/middleware.ts
-import { stackMiddleware } from "next-handler-middleware";
+import { stackMiddleware } from "nextjs-handler-middleware";
 
 import { loggerMiddleware } from "./logger-middleware";
 import { authMiddleware } from "./auth-middleware";
@@ -102,19 +109,22 @@ then have strong type definitions for the request body.
 // lib/validate-body-middleware.ts
 
 import {z} from "zod";
-import {createMiddleware} from "next-handler-middleware";
+import { createMiddleware } from "nextjs-handler-middleware";
 
-export const validateBodyMiddleware = (schema: z.Schema) => createMiddleware<
-  { body: z.infer<typeof schema> },
-  { message: string }
->(async (req, res, next) => {
-  try{
-    req.body = schema.parse(req.body);
-      await next();
-  }catch(e){
-    res.status(400).send({ message: "invalid request body", error: e });
-  }
-});
+export function validateBodyMiddleware<S extends z.Schema>(schema: S) {
+  return createMiddleware<{ body: z.infer<S> }>((req, res, next) => {
+    const parsed = schema.safeParse(req.body);
+    if (parsed.success) {
+      req.body = parsed.data;
+      next();
+    } else {
+      res.status(400).json({
+        message: `Invalid request body`,
+        code: "BAD_FORMAT",
+      });
+    }
+  });
+}
 ```
 
 2. Use the middleware in your Next.js API route
