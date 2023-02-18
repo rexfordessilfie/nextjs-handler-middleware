@@ -12,8 +12,11 @@ yarn add nextjs-handler-middleware
 ```
 
 # Usage
+## `createMiddleware`
+Using `createMiddleware` you can create a middleware that can be used in a Next.js API route. It receives a callback argument that has a `next()` function that you can call to continue to the execution of the handler that is being wrapped by the middleware.
 
-## Basic Usage
+### Usage: Logging Middleware
+
 1. Define your middleware
 ```ts
 // lib/logger-middleware.ts
@@ -52,12 +55,60 @@ export default loggerMiddleware(async (req, res) => {
 });
 ```
 
+# Advanced Usage
+This base middleware can be extended to create more complex middleware by merging them together in a modular fashion.
 
-## Advanced Usage
-Here, we are able to compose several middleware together in a reusable manner. We can develop a base middleware that is used by all routes (e.g for things such as connecting a database, logging requests, rate-limiting etc.), and then extend it with additional middleware for specific routes (e.g for request validation, or pay-walls etc.)
+## `mergeMiddleware`
+With `mergeMiddleware`, you can combine two middleware together into one.
 
-1. Define additional middleware, for example for protected routes
+### Usage
+```ts
+// pages/api/hello.ts
+import { mergeMiddleware } from "nextjs-handler-middleware";
 
+import { loggerMiddleware, dbConnectionMiddleware } from "./middleware";
+
+export const middleware = mergeMiddleware(loggerMiddleware, dbConnectionMiddleware);
+
+export default middleware(async (req, res) => {
+  res.status(200).send({ message: "hello world!" });
+});
+```
+Under the hood, the middleware are applied as follows:
+```typescript
+loggerMiddleware(dbConnectionMiddleware(handler))
+```
+
+## `stackMiddleware`
+With `stackMiddleware`, you can compose multiple middleware together into a single middleware. This builds directly on top of `mergeMiddleware` and attaches a `add` method to the middleware that allows you to add infinite middleware to the stack!
+
+For example, given:
+```typescript
+const middleware = stackMiddleware(middlewareA).add(middlewareB);
+
+middleware(handler);
+```
+
+The middleware will be applied as follows:
+```typescript
+middlewareA(middlewareB(handler))
+```
+
+
+### Usage
+
+1. Define additional middleware, for example for protected routes:
+
+**Middleware 1: `dbMiddleware`**
+```ts
+// lib/db-middleware.ts
+export const dbMiddleware = createMiddleware(async (req, res, next) => {
+  await dbConnect();
+  await next();
+});
+```
+
+**Middleware 2: `authMiddleware`**
 ```ts
 // lib/auth-middleware.ts
 export const authMiddleware = createMiddleware<
@@ -76,22 +127,33 @@ export const authMiddleware = createMiddleware<
 ```
 
 2. Assemble different middleware into a single middleware and extend it with additional middleware
-
 ```ts
 // lib/middleware.ts
 import { stackMiddleware } from "nextjs-handler-middleware";
 
 import { loggerMiddleware } from "./logger-middleware";
 import { authMiddleware } from "./auth-middleware";
+import { dbMiddleware } from "./db-middleware";
 
-export const baseMiddleware = stackMiddleware(loggerMiddleware);
+export const baseMiddleware = stackMiddleware(loggerMiddleware).add(dbMiddleware);
 export const protectedMiddleware = baseMiddleware.add(authMiddleware);
 ```
 
-3. Use the middleware in your Next.js API route
+1. Use the middleware in your Next.js API routes
 
+**Public API Routes**
 ```ts
 // pages/api/hello.ts
+import { baseMiddleware } from "../../lib/middleware";
+
+export default baseMiddleware(async function handler (req, res) {
+  res.status(200).send({ message: `hello world!` });
+});
+```
+
+**Private API Routes**
+```ts
+// pages/api/admin.ts
 import { protectedMiddleware } from "../../lib/middleware";
 
 export default protectedMiddleware(async function handler (req, res) {
@@ -99,15 +161,28 @@ export default protectedMiddleware(async function handler (req, res) {
 });
 ```
 
-## Request Validation
-In addition to the examples above, you can also perform request validation using a middleware, and
+## `chainMiddleware`
+This is very similar to `stackMiddleware`, except that it applies the middleware in the opposite order, i.e the first one added will be the first one applied.
+
+For example, given:
+```typescript
+const middleware = chainMiddleware(middlewareA).add(middlewareB);
+
+middleware(handler);
+```
+
+The middleware will be applied as follows:
+```typescript
+middlewareB(middlewareA(handler))
+```
+
+## Middleware + Zod Request Validation
+In addition to the examples above, you can also perform request validation using the middleware, and
 then have strong type definitions for the request body.
 
 1. Define the validator body middleware
-
 ```ts
 // lib/validate-body-middleware.ts
-
 import {z} from "zod";
 import { createMiddleware } from "nextjs-handler-middleware";
 
@@ -146,8 +221,8 @@ export default middleware(async function handler (req, res) {
   });
 ```
 
-# A Note on Types
-The types strategy on this branch automatically makes all middleware request parameter extensions optional to 
+## A Note on Handler Request Parameter Types
+The types strategy in this package automatically makes all middleware request parameter extensions optional to 
 guard against mistakes such as forgetting to set the parameter in the middleware. For example consider the
 following where we forget to set the `emoji` parameter:
 
@@ -174,5 +249,4 @@ const middleware = createMiddleware(async (req: NextApiRequest & { emoji: string
   await next();
 });
 ```
-
 In the future, I would love to explore extending something such as eslint, or the typescript compiler type-checker to automatically check that all middleware request parameter extensions are set in the middleware as a way to prevent the possibility of such bugs.
