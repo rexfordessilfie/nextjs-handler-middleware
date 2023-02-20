@@ -19,9 +19,8 @@ export const mergeMiddleware =
     handler: Handler<
       MergedNextApiRequest<inferMiddlewareReq<A>, inferMiddlewareReq<B>>
     >
-  ) => {
-    return a(b(handler as Handler));
-  };
+  ): typeof handler =>
+    a(b(handler));
 
 /**
  * Merges two Next.js API middleware into one (middleware applied from last to first)
@@ -29,16 +28,15 @@ export const mergeMiddleware =
  * @returns
  */
 export const stackMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
-  const newHandler = (handler: inferMiddlewareHandler<M1>) => {
-    return middlewareA(handler);
-  };
+  const stackedMiddleware = (
+    handler: inferMiddlewareHandler<M1>
+  ): typeof handler => middlewareA(handler);
 
-  newHandler.kind = "stack" as "stack";
-
-  newHandler.add = <M2 extends Middleware>(middlewareB: M2) =>
+  stackedMiddleware.kind = "stack" as "stack";
+  stackedMiddleware.add = <M2 extends AnyMiddleware>(middlewareB: M2) =>
     stackMiddleware(mergeMiddleware(middlewareA, middlewareB));
 
-  return newHandler;
+  return stackedMiddleware;
 };
 
 /**
@@ -47,14 +45,13 @@ export const stackMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
  * @returns
  */
 export const chainMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
-  const newHandler = (handler: inferMiddlewareHandler<M1>) => {
-    return middlewareA(handler);
-  };
+  const chainedMiddleware = (
+    handler: inferMiddlewareHandler<M1>
+  ): typeof handler => middlewareA(handler);
 
-  newHandler.kind = "chain" as "chain";
-
-  newHandler.add = <M2 extends AnyMiddleware>(middlewareB: M2) =>
+  chainedMiddleware.kind = "chain" as "chain";
+  chainedMiddleware.add = <M2 extends AnyMiddleware>(middlewareB: M2) =>
     chainMiddleware(mergeMiddleware(middlewareB, middlewareA));
 
-  return newHandler;
+  return chainedMiddleware;
 };

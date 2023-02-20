@@ -1,8 +1,8 @@
 import { NextApiResponse } from "next";
 import {
-  Callback,
+  CreateMiddlewareCb,
   Handler,
-  inferCallbackReq,
+  inferCreateMiddlewareCbReq,
   ExtendedNextApiRequest,
 } from "./types";
 
@@ -16,25 +16,23 @@ import {
  *  and returns the newly wrapped handler
  */
 export function createMiddleware<
-  WReqParams extends Record<string, any> = {},
-  WResBody = unknown,
-  WReqDeps extends Record<string, any> = {},
-  WReq extends ExtendedNextApiRequest<
-    Partial<WReqParams> | WReqParams
-  > = ExtendedNextApiRequest<Partial<WReqParams>>,
-  WRes extends NextApiResponse<WResBody> = NextApiResponse<WResBody>
->(callback: Callback<WReq & Partial<WReqDeps>, WRes>) {
-  return function middleware(handler: Handler<WReq>): typeof handler {
+  MReqParams extends Record<string, any> = {},
+  MResBody = unknown,
+  MReqDeps extends Record<string, any> = {},
+  MReq extends ExtendedNextApiRequest<
+    Partial<MReqParams> | MReqParams
+  > = ExtendedNextApiRequest<Partial<MReqParams>>,
+  MRes extends NextApiResponse<MResBody> = NextApiResponse<MResBody>
+>(callback: CreateMiddlewareCb<MReq & Partial<MReqDeps>, MRes>) {
+  return function middleware(handler: Handler<MReq>): typeof handler {
     return async function middlewareHandler(req, res) {
-      function next() {
-        return handler(req, res);
-      }
+      const next = () => handler(req, res);
 
       // Run the callback. Cast req to the type of callback's req
       // since we assume deps are already attached to the request
       return await callback(
-        req as inferCallbackReq<typeof callback>,
-        res as WRes,
+        req as inferCreateMiddlewareCbReq<typeof callback>,
+        res as MRes,
         next
       );
     };
