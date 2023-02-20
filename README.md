@@ -1,5 +1,5 @@
 # nextjs-handler-middleware
-A simple Next.js middleware library! I made this library because I wanted to learn how to make one, and also to aim for as strong type inference and modular APIs.
+A simple Next.js middleware library! I made this library because I wanted to learn how to make one, and with a goal of strong type inference and modular APIs.
 
 # Installation
 ```bash
@@ -15,7 +15,7 @@ yarn add nextjs-handler-middleware
 ## `createMiddleware`
 Using `createMiddleware` you can create a middleware that can be used in a Next.js API route. It receives a callback argument that has a `next()` function that you can call to continue to the execution of the handler that is being wrapped by the middleware.
 
-### Usage: Logging Middleware
+### Usage: **`loggerMiddleware`**
 
 1. Define your middleware
 ```ts
@@ -56,27 +56,41 @@ export default loggerMiddleware(async (req, res) => {
 ```
 
 # Advanced Usage
-This base middleware can be extended to create more complex middleware by merging them together in a modular fashion.
+In the advanced usage, individual middleware can be merged together in a modular fashion to create more complex middleware. Here are the options for merging different middleware together:
 
 ## `mergeMiddleware`
-With `mergeMiddleware`, you can combine two middleware together into one.
+With `mergeMiddleware`, you can combine two middleware together into one. The type of the request object for the handler is inferred from the combination of the request types of the two middleware.
 
 ### Usage
+1. Define an additional middleware to the logger middleware above, for example a `dbConnectMiddleware` for establishing db connections before each request:
+  
+**Middleware 2: `dbConnectMiddleware`**
+```ts
+// lib/db-middleware.ts
+export const dbConnectMiddleware = createMiddleware(async (req, res, next) => {
+  await dbConnect();
+  await next();
+});
+```
+
+2. Now merge the two middleware together into one middleware to bring together both the logging and db connection functionality:
+
 ```ts
 // pages/api/hello.ts
 import { mergeMiddleware } from "nextjs-handler-middleware";
 
-import { loggerMiddleware, dbConnectionMiddleware } from "./middleware";
+import { loggerMiddleware, dbConnectMiddleware } from "./middleware";
 
-export const middleware = mergeMiddleware(loggerMiddleware, dbConnectionMiddleware);
+export const middleware = mergeMiddleware(loggerMiddleware, dbConnectMiddleware);
 
 export default middleware(async (req, res) => {
-  res.status(200).send({ message: "hello world!" });
+  res.status(200).send({ message: "Hello World!", startTime: req.startTime });
 });
 ```
+
 Under the hood, the middleware are applied as follows:
 ```typescript
-loggerMiddleware(dbConnectionMiddleware(handler))
+loggerMiddleware(dbConnectMiddleware(handler))
 ```
 
 ## `stackMiddleware`
@@ -94,21 +108,11 @@ The middleware will be applied as follows:
 middlewareA(middlewareB(handler))
 ```
 
-
 ### Usage
 
-1. Define additional middleware, for example for protected routes:
+1. We will define another middleware, `authMiddleware`, that checks for a user cookie and attaches the user to the request object:
 
-**Middleware 1: `dbMiddleware`**
-```ts
-// lib/db-middleware.ts
-export const dbMiddleware = createMiddleware(async (req, res, next) => {
-  await dbConnect();
-  await next();
-});
-```
-
-**Middleware 2: `authMiddleware`**
+**Middleware 3: `authMiddleware`**
 ```ts
 // lib/auth-middleware.ts
 export const authMiddleware = createMiddleware<
@@ -126,27 +130,27 @@ export const authMiddleware = createMiddleware<
 });
 ```
 
-2. Assemble different middleware into a single middleware and extend it with additional middleware
+2. Assemble different middleware into a single public middleware, and then extend the public middleware with the auth middleware to create a protected middleware:
 ```ts
 // lib/middleware.ts
 import { stackMiddleware } from "nextjs-handler-middleware";
 
 import { loggerMiddleware } from "./logger-middleware";
 import { authMiddleware } from "./auth-middleware";
-import { dbMiddleware } from "./db-middleware";
+import { dbConnectMiddleware } from "./db-middleware";
 
-export const baseMiddleware = stackMiddleware(loggerMiddleware).add(dbMiddleware);
-export const protectedMiddleware = baseMiddleware.add(authMiddleware);
+export const publicMiddleware = stackMiddleware(loggerMiddleware).add(dbConnectMiddleware);
+export const protectedMiddleware = publicMiddleware.add(authMiddleware);
 ```
 
-1. Use the middleware in your Next.js API routes
+3. Now, for public Next.js API routes, we can use the `publicMiddleware` to wrap them, and for private Next.js API routes, we can use the `protectedMiddleware` to wrap them instead to secure such routes.
 
 **Public API Routes**
 ```ts
 // pages/api/hello.ts
-import { baseMiddleware } from "../../lib/middleware";
+import { publicMiddleware } from "../../lib/middleware";
 
-export default baseMiddleware(async function handler (req, res) {
+export default publicMiddleware(async function handler (req, res) {
   res.status(200).send({ message: `hello world!` });
 });
 ```
@@ -178,16 +182,23 @@ middlewareB(middlewareA(handler))
 
 ## Middleware + Zod Request Validation
 In addition to the examples above, you can also perform request validation using the middleware, and
-then have strong type definitions for the request body.
+then have strong type definitions for the request body for post requests.
 
-1. Define the validator body middleware
+1. Define the body validator middleware
 ```ts
 // lib/validate-body-middleware.ts
-import {z} from "zod";
+import { z } from "zod";
 import { createMiddleware } from "nextjs-handler-middleware";
 
-export function validateBodyMiddleware<S extends z.Schema>(schema: S) {
+export function bodyValidatorMiddleware<S extends z.Schema>(schema: S) {
   return createMiddleware<{ body: z.infer<S> }>((req, res, next) => {
+    const shouldValidateBody = req.method && /post/i.test(req.method);
+    
+    if (!shouldValidateBody) {
+      next();
+      return;
+    }
+
     const parsed = schema.safeParse(req.body);
     if (parsed.success) {
       req.body = parsed.data;
@@ -200,6 +211,7 @@ export function validateBodyMiddleware<S extends z.Schema>(schema: S) {
     }
   });
 }
+
 ```
 
 2. Use the middleware in your Next.js API route
@@ -220,6 +232,44 @@ export default middleware(async function handler (req, res) {
     res.status(200).send({ message: `hello ${req.body.name}` }); // req.body is defined and strongly typed by middleware
   });
 ```
+
+## Directly Invoking Middleware
+The middleware can be invoked directly inside of a handler if necessary. 
+
+When a middleware is invoked, it returns a new handler that encapsulates both the middleware's logic and the supplied handler's logic. Invoking this returned handler with request and response objects will actually fulfill the request.
+
+Executing middleware manually is useful when we want to apply middleware under certain select criteria, for example based on the request method. Here we only want to authenticate for POST requests for example:
+
+```ts
+// pages/api/hello.ts
+import { z } from "zod";
+import {
+  authMiddleware,
+  publicMiddleware,
+} from "../../lib/middleware";
+
+const schema = z.object({
+  name: z.string(),
+});
+
+// Wrap entire handler in public middleware for logging + db connection.
+export default publicMiddleware(function handler (req, res) {
+  if (req.method === "POST") {
+    // If POST, create a new handler that performs authentication
+    // before executing the supplied handler
+    const postHandler = authMiddleware((req, res) => {
+      // Responding to the POST request
+      res.status(200).send({ message: `hello ${req.body?.name}` });
+    });
+    // Invoke the new handler to execute both the auth middleware and the handler
+    postHandler(req, res);
+  } else {
+    // Otherwise respond to the GET request
+    res.status(200).send({ message: `hello world!` });
+  }
+});
+```
+
 
 ## A Note on Handler Request Parameter Types
 The types strategy in this package automatically makes all middleware request parameter extensions optional to 
