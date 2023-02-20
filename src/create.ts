@@ -1,8 +1,8 @@
 import { NextApiResponse } from "next";
 import {
-  Callback,
+  CreateMiddlewareCb,
   Handler,
-  inferCallbackReq,
+  inferCreateMiddlewareCbReq,
   ExtendedNextApiRequest,
 } from "./types";
 
@@ -23,7 +23,7 @@ export function createMiddleware<
     Partial<MReqParams> | MReqParams
   > = ExtendedNextApiRequest<Partial<MReqParams>>,
   MRes extends NextApiResponse<MResBody> = NextApiResponse<MResBody>
->(callback: Callback<MReq & Partial<MReqDeps>, MRes>) {
+>(callback: CreateMiddlewareCb<MReq & Partial<MReqDeps>, MRes>) {
   return function middleware(handler: Handler<MReq>): typeof handler {
     return async function middlewareHandler(req, res) {
       const next = () => handler(req, res);
@@ -31,7 +31,7 @@ export function createMiddleware<
       // Run the callback. Cast req to the type of callback's req
       // since we assume deps are already attached to the request
       return await callback(
-        req as inferCallbackReq<typeof callback>,
+        req as inferCreateMiddlewareCbReq<typeof callback>,
         res as MRes,
         next
       );

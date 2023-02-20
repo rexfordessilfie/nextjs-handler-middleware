@@ -25,7 +25,7 @@ export type inferMiddlewareReq<M extends Middleware<any>> = Parameters<
 /**
  * The middleware callback type.
  */
-export type Callback<
+export type CreateMiddlewareCb<
   Req extends NextApiRequest = NextApiRequest & Record<string, any>,
   Res extends NextApiResponse = NextApiResponse<any>
 > = (req: Req, res: Res, next: Function) => ReturnType<NextApiHandler>;
@@ -33,8 +33,8 @@ export type Callback<
 /**
  * Helper type to infer the callback's request type
  */
-export type inferCallbackReq<
-  C extends Callback<Req, Res>,
+export type inferCreateMiddlewareCbReq<
+  C extends CreateMiddlewareCb<Req, Res>,
   Req extends NextApiRequest = any,
   Res extends NextApiResponse = any
 > = Parameters<C>[0];
