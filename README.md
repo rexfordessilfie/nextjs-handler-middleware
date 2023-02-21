@@ -180,7 +180,7 @@ The middleware will be applied as follows:
 middlewareB(middlewareA(handler))
 ```
 
-## Middleware + Zod Request Validation
+## `createMiddleware` + `zod` Request Validation
 In addition to the examples above, you can also perform request validation using the middleware, and
 then have strong type definitions for the request body for post requests.
 
@@ -231,6 +231,33 @@ const middleware = protectedMiddleware.add(validateBodyMiddleware(schema));
 export default middleware(async function handler (req, res) {
     res.status(200).send({ message: `hello ${req.body.name}` }); // req.body is defined and strongly typed by middleware
   });
+```
+
+## `createHandler`
+The `createHandler` function can be used to create a NextJS API handler with specific handlers for each request method. It supports a `middleware` configuration option that let's you specify middleware to be executed for each request method.
+
+### Usage: `createHandler` + Protected and Public Routes per Method
+```ts
+// pages/api/hello.ts
+import { createHandler } from "nextjs-handler-middleware";
+import { protectedMiddleware, publicMiddleware } from "../../lib/middleware";
+
+const handler = createHandler({
+  middleware: {
+    get: publicMiddleware,
+    post: protectedMiddleware,
+  },
+})
+
+handler.get((req, res) => {
+  res.status(200).send({ message: `Hello from public route!` });
+})
+
+handler.post((req, res) => {
+  res.status(200).send({ message: `Hello from protected route!`, user: req.user });
+})
+
+export default handler;
 ```
 
 ## Directly Invoking Middleware
