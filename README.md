@@ -261,37 +261,27 @@ export default handler;
 ```
 
 ## Directly Invoking Middleware
-The middleware can be invoked directly inside of a handler if necessary. 
-
 When a middleware is invoked, it returns a new handler that encapsulates both the middleware's logic and the supplied handler's logic. Invoking this returned handler with request and response objects will actually fulfill the request.
 
-Executing middleware manually is useful when we want to apply middleware under certain select criteria, for example based on the request method. Here we only want to authenticate for POST requests for example:
+Executing middleware manually is useful when we want to apply middleware under certain specific criteria. For example, similar to `createHandler` above, we can perform authentication only for POST requests as follows:
 
 ```ts
 // pages/api/hello.ts
-import { z } from "zod";
-import {
-  authMiddleware,
-  publicMiddleware,
-} from "../../lib/middleware";
+import { authMiddleware, publicMiddleware } from "../../lib/middleware";
 
-const schema = z.object({
-  name: z.string(),
+// Invoke authMiddleware directly to get POST handler with authentication logic
+const postHandler = authMiddleware((req, res) => {
+  // Responding to the request
+  res.status(200).send({ message: `hello from protected!`, user: req.user });
 });
 
-// Wrap entire handler in public middleware for logging + db connection.
-export default publicMiddleware(function handler (req, res) {
+// We are wrapping entire handler in public middleware for base logging + db connection logic
+export default publicMiddleware(function handler(req, res) {
   if (req.method === "POST") {
-    // If POST, create a new handler that performs authentication
-    // before executing the supplied handler
-    const postHandler = authMiddleware((req, res) => {
-      // Responding to the POST request
-      res.status(200).send({ message: `hello ${req.body?.name}` });
-    });
-    // Invoke the new handler to execute both the auth middleware and the handler
+    // If POST, invoke the specific POST handler
     postHandler(req, res);
   } else {
-    // Otherwise respond to the GET request
+    // Otherwise respond to the request in default manner
     res.status(200).send({ message: `hello world!` });
   }
 });
