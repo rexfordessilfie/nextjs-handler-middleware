@@ -66,3 +66,45 @@ export type MergedNextApiRequest<
 > = MergeLeft<ReqA, ReqB> extends NextApiRequest
   ? MergeLeft<ReqA, ReqB>
   : never;
+
+/**
+ * A generic handler that does not enforce request or response types
+ * for flexible use cases in createHandlerWithMiddleware.
+ */
+export type GenericHandler<Req, Res> = (
+  req: Req,
+  res: Res
+) => ReturnType<NextApiHandler>;
+
+/**
+ * The keys of the middleware config object.
+ */
+export type CreateHandlerMiddlewareKeys =
+  | "get"
+  | "post"
+  | "put"
+  | "patch"
+  | "delete"
+  | "default";
+
+/**
+ * The type of the config object passed to the createHandler function.
+ */
+export type CreateHandlerConfig = {
+  middleware?: Partial<Record<CreateHandlerMiddlewareKeys, AnyMiddleware>>;
+};
+
+/**
+ * Infers the middleware type from the config. Checks for the specified method
+ * then defaults to the type of the default middleware, otherwise returns undefined.
+ */
+export type inferCreateHandlerConfig<
+  C extends CreateHandlerConfig,
+  K extends CreateHandlerMiddlewareKeys
+> = C["middleware"] extends Record<string, AnyMiddleware>
+  ? C["middleware"][K] extends AnyMiddleware
+    ? C["middleware"][K]
+    : C["middleware"]["default"] extends AnyMiddleware
+    ? C["middleware"]["default"]
+    : undefined
+  : undefined;

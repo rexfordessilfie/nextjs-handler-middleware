@@ -1,6 +1,6 @@
 {
   "name": "nextjs-handler-middleware",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "main": "dist/index.js",
   "repository": "https://github.com/RexfordEssilfie/nextjs-handler-middleware",
   "scripts": {
