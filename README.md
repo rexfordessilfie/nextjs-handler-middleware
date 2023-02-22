@@ -210,16 +210,17 @@ import { createMiddleware } from "../../../../dist";
 
 export const loggingMiddleware = createMiddleware(
   async (req, res: NextApiResponse<{ message: string }>, next) => {
+    const start = Date.now();
     console.log(`[${req.method}] ${req.url} started`);
 
     try {
       await next();
       console.log(
-        `[${req.method}] ${req.url} completed (${Date.now() - req.startTime}ms)`
+        `[${req.method}] ${req.url} completed (${Date.now() - start}ms)`
       );
     } catch (e) {
       console.error(
-        `[${req.method}] ${req.url} errored (${Date.now() - req.startTime}ms)`,
+        `[${req.method}] ${req.url} errored (${Date.now() - start}ms)`,
         e
       );
       res.status(500).send({ message: "Request failed" });
