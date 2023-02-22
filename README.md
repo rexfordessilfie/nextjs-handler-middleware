@@ -21,7 +21,7 @@ A simple Next.js API middleware solution! This library was inspired by my desire
       // Do something magical...(e.g connect to your database, add a tracer id to the request, etc.)
       
       // Attach any extra properties you want to the request
-      req.requestId = uuid.v4();
+      req.requestId = '...';
       
       // Execute the request
       await next();
