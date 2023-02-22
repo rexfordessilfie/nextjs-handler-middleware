@@ -20,13 +20,13 @@ A simple Next.js API middleware solution! This library was inspired by my desire
     export const myMiddleware = createMiddleware<{ requestId: string }>((req, res, next) => {
       // Do something magical...(e.g connect to your database, add a tracer id to the request, etc.)
       
-      // Attach any extra properties you desire to the request :)
+      // Attach any extra properties you want to the request
       req.requestId = uuid.v4();
       
       // Execute the request
       await next();
       
-      // Do something to end the process...(e.g log request duration, emit some analytics, etc.)
+      // Do something after executing the request...(e.g log request duration, emit some analytics, etc.)
     })
     ```
 3. Finally, wrap the middleware around an Next.js API file:
