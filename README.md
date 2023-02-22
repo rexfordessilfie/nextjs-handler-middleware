@@ -15,7 +15,8 @@ A simple Next.js API middleware solution! This library was inspired by my desire
 2. Next, define a middleware function with `createMiddleware`, as follows:
 
     ```typescript
-    // lib/middleware/my-middleware.ts
+    // lib/path/to/your/middleware/my-middleware.ts
+    import { createMiddleware } from "nextjs-handler-middleware"
 
     export const myMiddleware = createMiddleware<{ requestId: string }>((req, res, next) => {
       // Do something magical...(e.g connect to your database, add a tracer id to the request, etc.)
@@ -29,10 +30,10 @@ A simple Next.js API middleware solution! This library was inspired by my desire
       // Do something after executing the request...(e.g log request duration, emit some analytics, etc.)
     })
     ```
-3. Finally, wrap the middleware around an Next.js API file:
+3. Finally, wrap the middleware around an Next.js API handler in a pages/api file:
     ```typescript
     // pages/api/hello.ts
-    import { myMiddleware } from "lib/middleware"
+    import { myMiddleware } from "lib/path/to/your/middleware/my-middleware.ts"
     
     export default myMiddleware(function handler(req, res) {
       // Access properties provided by the middleware
@@ -65,7 +66,7 @@ A simple Next.js API middleware solution! This library was inspired by my desire
           console.log(error);
         });
    
-      if (!user && redirect ) {
+      if (!user) {
         res.status(403).send({ message: "Unauthorized!" });
         return;
       }
@@ -124,7 +125,7 @@ A simple Next.js API middleware solution! This library was inspired by my desire
   
   ```typescript
   import { stackMiddleware } from "nextjs-handler-middleware"
-  import { authMiddleware, restrictedRoleMiddleware } from "lib/middleware"
+  import { authMiddleware, restrictedRoleMiddleware } from "lib/path/to/your/middleware"
   
   const userRestrictedMiddleware = stackMiddleware(authMiddleware).add(restrictedRoleMiddleware("user"));
   const adminRestrictedMiddleware = stackMiddleware(authMiddleware).add(restrictedRoleMiddleware("admin"));
@@ -138,7 +139,7 @@ A simple Next.js API middleware solution! This library was inspired by my desire
   In other words, the definitions above are equivalent to:
   ```typescript
   import { chainMiddleware } from "nextjs-handler-middleware"
-  import { authMiddleware, restrictedRoleMiddleware } from "lib/middleware"
+  import { authMiddleware, restrictedRoleMiddleware } from "lib/path/to/your/middleware"
   
   const userRestrictedMiddleware = chainMiddleware(restrictedRoleMiddleware("user")).add(authMiddleware);
   const adminRestrictedMiddleware = chainMiddleware(restrictedRoleMiddleware("admin")).add(authMiddleware);
@@ -153,7 +154,7 @@ This is another way to combine multiple middleware. It takes in two middleware a
 Again, we can express the above middleware as:
 ```typescript
 import { chainMiddleware } from "nextjs-handler-middleware"
-import { authMiddleware, restrictedRoleMiddleware } from "lib/middleware"
+import { authMiddleware, restrictedRoleMiddleware } from "lib/path/to/your/middleware"
 
 const userRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("user"));
 const adminRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("admin"));
@@ -163,7 +164,7 @@ const superAdminRestrictedMiddleware = mergeMiddleware(authMiddleware, restricte
 NB: Unlike `stackMiddleware` and `chainMiddleware`, `mergeMiddleware` does not have a `.add()` function for extending it. Though, you could extend it as follows if you wanted to:
 ```typescript
 import { mergeMiddleware } from "nextjs-handler-middleware"
-import { m1, m2, m3, m4 } from "lib/middleware"
+import { m1, m2, m3, m4 } from "lib/path/to/your/middleware"
 
 const mySuperMergedMiddleware = mergeMiddleware(mergeMiddleware(mergeMiddleware(m1, m2), m3), m4); // ...ad infinitum
 ```
@@ -175,7 +176,7 @@ This is the last and newly added package functions! Sometimes, you may want to e
 
 ```typescript
 // pages/api/hello.ts
-import { userRestrictedMiddleware, adminRestrictedMiddleware } from "lib/middleware";
+import { userRestrictedMiddleware, adminRestrictedMiddleware } from "lib/path/to/your/middleware";
 
 const handler = createHandler({
   middleware: {
@@ -270,7 +271,7 @@ export function bodyValidatorMiddleware<S extends z.Schema>(schema: S) {
 ```typescript
 //pages/api/user/[id].ts
 import { createHandler, stackMiddleware } from "nextjs-auth-middleware";
-import { userRestrictedMiddleware } from "lib/middleware";
+import { userRestrictedMiddleware } from "lib/path/to/your/middleware";
 import { z } from "zod";
 
 const userSchema = z.object({
