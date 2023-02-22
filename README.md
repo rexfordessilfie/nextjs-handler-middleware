@@ -1,204 +1,256 @@
-# nextjs-handler-middleware
-A simple Next.js middleware library! I made this library because I wanted to learn how to make one, and with a goal of strong type inference and modular APIs.
+# Next.js Handler Middleware 
+A simple Next.js API middleware solution! This library was inspired by my desire to learn how to make one with the goal of strong type inference and a modular API.
 
-# Installation
-```bash
-npm install nextjs-handler-middleware
-```
+# Getting Started 🚀
+1. First install the library using your favorite package manager:
 
-Or if you are using yarn:
-```bash
-yarn add nextjs-handler-middleware
-```
+    **Using NPM**
+    ```bash
+    npm install nextjs-handler-middleware
+    ```
+    **Using Yarn**
+    ```bash
+    yarn add nextjs-handler-middleware
+    ```
+2. Next, define a middleware function with `createMiddleware`, as follows:
 
-# Usage
-## `createMiddleware`
-Using `createMiddleware` you can create a middleware that can be used in a Next.js API route. It receives a callback argument that has a `next()` function that you can call to continue to the execution of the handler that is being wrapped by the middleware.
+    ```typescript
+    // lib/middleware/my-middleware.ts
 
-### Usage: **`loggerMiddleware`**
+    export const myMiddleware = createMiddleware<{ requestId: string }>((req, res, next) => {
+      // Do something magical...(e.g connect to your database, add a tracer id to the request, etc.)
+      
+      // Attach any extra properties you desire to the request :)
+      req.requestId = uuid.v4();
+      
+      // Execute the request
+      await next();
+      
+      // Do something to end the process...(e.g log request duration, emit some analytics, etc.)
+    })
+    ```
+3. Finally, wrap the middleware around an Next.js API file:
+    ```typescript
+    // pages/api/hello.ts
+    import { myMiddleware } from "lib/middleware"
+    
+    export default myMiddleware(function handler(req, res) {
+      // Access properties provided by the middleware
+      console.log(req.requestId)
+      
+      // Respond to the request!
+      res.status(200).json({ message: "Hello from Next.js API!" })
+    })
+    ```
 
-1. Define your middleware
-```ts
-// lib/logger-middleware.ts
-
-import { createMiddleware } from "nextjs-handler-middleware";
-
-export const loggerMiddleware = createMiddleware<
-  { startTime: number },
-  { message: string }
->(async (req, res, next) => {
-  console.log("request started!");
-
-  const start = Date.now();
-  req.startTime = start;
-
-  try {
-    await next();
-    console.log("request succeeded!");
-  } catch (e) {
-    res.status(500).send({ message: "request failed" });
-    console.log("request failed with error");
-  }
-
-  const stop = Date.now();
-  console.log("duration (ms):", stop - start);
-});
-```
-
-2. Use it in your Next.js API route
-```ts
-// pages/api/hello.ts
-import { loggerMiddleware } from "../../lib/logger-middleware";
-
-export default loggerMiddleware(async (req, res) => {
-  res.status(200).send({ message: "hello world" });
-});
-```
-
-# Advanced Usage
-In the advanced usage, individual middleware can be merged together in a modular fashion to create more complex middleware. Here are the options for merging different middleware together:
-
-## `mergeMiddleware`
-With `mergeMiddleware`, you can combine two middleware together into one. The type of the request object for the handler is inferred from the combination of the request types of the two middleware.
-
-### Usage
-1. Define an additional middleware to the logger middleware above, for example a `dbConnectMiddleware` for establishing db connections before each request:
+# Middleware Features 🧱
+## **`createMiddleware`**
+  This is the main offering, which supports middleware creation for Next.js API handlers. Define a middleware that performs any arbitrary piece of logic. It provides the handler's `req` and `res`, and a `next` function for executing the wrapped handler.
   
-**Middleware 2: `dbConnectMiddleware`**
-```ts
-// lib/db-middleware.ts
-export const dbConnectMiddleware = createMiddleware(async (req, res, next) => {
-  await dbConnect();
-  await next();
-});
+  With the `res` object, you can respond to requests early, and with the `req` object, you can attach extra properties to be used by the handler or by subsequent middleware.
+  
+  **Example 1: `authMiddleware`**: Ensure a user has been authenticated with next-auth before continuing with request, then attach current user to the request.
+  ```typescript
+  import { getSession } from "next-auth/react";
+  import { Session } from "next-auth";
+  
+  type RequestParams = { user: Session["user"] }
+  type ResponseBody = { message: string, code: "UNAUTHORIZED" }
+      
+  const authMiddleware = createMiddleware<RequestParams, ResponseBody>(
+    async (req, res, next) => {
+      const user = getSession({ req })
+        .then((session) => session.user)
+        .catch((error) => {
+          console.log(error);
+        });
+   
+      if (!user && redirect ) {
+        res.status(403).send({ message: "Unauthorized!" });
+        return;
+      }
+
+      req.user = session.user;
+      next();
+    }
+  );
+  ```
+  
+  **Example 2: `restrictedRoleMiddleware`**: Ensure that a user has the right role to access the API route.
+  ```typescript
+  import { getSession } from "next-auth/react";
+  import { User } from "lib/types";
+
+  const ROLES = {
+    guest: "guest",
+    user: "user",
+    admin: "admin",
+    superAdmin: "superAdmin",
+  } as const;
+
+  type Role = typeof ROLES[keyof typeof ROLES];
+  const ROLE_LEVELS: Record<Role, number> = {
+    guest: 0,
+    user: 1,
+    admin: 2,
+    superAdmin: 3,
+  };
+
+  type RequestParams = {};
+  type ResponseBody = { message: string };
+  type RequestDeps = { user?: User };
+
+  const restrictedRoleMiddleware = <R extends Role>(role: R) =>
+    createMiddleware<RequestParams, ResponseBody, RequestDeps>(
+      async (req, res, next) => {
+        const currentUserLevel = ROLE_LEVELS[req.user.role ?? ROLES.guest];
+        const requiredLevel = ROLE_LEVELS[role];
+
+        if (currentUserLevel < requiredLevel) {
+          res.status(403).send({ message: "Unauthorized operation!" });
+          return;
+        }
+
+        next();
+      }
+    );
+  ```
+## `stackMiddleware` 
+  Often times, we want combine and execute multiple middleware within the same request. For this, we can use any of `stackMiddleware`, `chainMiddleware` or `mergeMiddleware` to combine multiple middleware together.
+  Building from the example above, we can see that the `restrictedRoleMiddleware` depends on the `authMiddleware` which sets the current user of the request as a request parameter.
+  We can combine the above middleware using `stackMiddleware` for example in the following way:
+  
+  **Example**: Restricted Middleware per User Role
+  
+  ```typescript
+  import { stackMiddleware } from "nextjs-handler-middleware"
+  import { authMiddleware, restrictedRoleMiddleware } from "lib/middleware"
+  
+  const userRestrictedMiddleware = stackMiddleware(authMiddleware).add(restrictedRoleMiddleware("user"));
+  const adminRestrictedMiddleware = stackMiddleware(authMiddleware).add(restrictedRoleMiddleware("admin"));
+  const superAdminRestrictedMiddleware = stackMiddleware(authMiddleware).add(restrictedRoleMiddleware("superAdmin"));
+  ```
+  Now, we can apply these middleware to different handler routes as necessary!
+  
+  ## `chainMiddleware`
+  As above, `chainMiddleware` is also is used to combine middleware. In fact it has exactly the same usage pattern as `stackMiddleware`, except that the middleware are executed in the opposite order.
+  
+  In other words, the definitions above are equivalent to:
+  ```typescript
+  import { chainMiddleware } from "nextjs-handler-middleware"
+  import { authMiddleware, restrictedRoleMiddleware } from "lib/middleware"
+  
+  const userRestrictedMiddleware = chainMiddleware(restrictedRoleMiddleware("user")).add(authMiddleware);
+  const adminRestrictedMiddleware = chainMiddleware(restrictedRoleMiddleware("admin")).add(authMiddleware);
+  const superAdminRestrictedMiddleware = chainMiddleware(restrictedRoleMiddleware("admin")).add(authMiddleware);
+  ```
+  
+  In general, `stackMiddleware` is more erognomic - we add onto the back, versus at the front with `chainMiddleware`.
+  
+## `mergeMiddleware`
+This is another way to combine multiple middleware. It takes in two middleware and combines them into one. Both `stackMiddleware` and `chainMiddleware` are built on top of `mergeMiddleware`, so you may not need to use `mergeMiddleware` directly!
+
+Again, we can express the above middleware as:
+```typescript
+  import { chainMiddleware } from "nextjs-handler-middleware"
+  import { authMiddleware, restrictedRoleMiddleware } from "lib/middleware"
+  
+  const userRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("user"));
+  const adminRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("admin"));
+  const superAdminRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("superAdmin"));
 ```
 
-2. Now merge the two middleware together into one middleware to bring together both the logging and db connection functionality:
+NB: Unlike `stackMiddleware` and `chainMiddleware`, `mergeMiddleware` does not have a `.add()` function for extending it. Though, you could extend it as follows if you wanted to:
+```typescript
+  import { mergeMiddleware } from "nextjs-handler-middleware"
+  import { m1, m2, m3, m4 } from "lib/middleware"
+  
+  const mySuperMergedMiddleware = mergeMiddleware(mergeMiddleware(mergeMiddleware(m1, m2), m3), m4); // ...ad infinitum
+```
 
-```ts
+## `createHandler`
+This is the last and newly added package functions! Sometimes, you may want to execute certain middleware for only certain request methods. When this is the case, `createHandler` provides a simple way to express that functionality:
+
+**Example: Only Users can POST, Only Admins can Delete, Everyone can Read
+
+```typescript
 // pages/api/hello.ts
-import { mergeMiddleware } from "nextjs-handler-middleware";
+import { userRestrictedMiddleware, adminRestrictedMiddleware } from "lib/middleware";
 
-import { loggerMiddleware, dbConnectMiddleware } from "./middleware";
-
-export const middleware = mergeMiddleware(loggerMiddleware, dbConnectMiddleware);
-
-export default middleware(async (req, res) => {
-  res.status(200).send({ message: "Hello World!", startTime: req.startTime });
+const handler = createHandler({
+  middleware: {
+    post: userRestrictedMiddleware,
+    delete: adminRestrictedMiddleware,
+  },
 });
-```
 
-Under the hood, the middleware are applied as follows:
-```typescript
-loggerMiddleware(dbConnectMiddleware(handler))
-```
+handler.get((req, res: NextApiResponse<{ message: string }>) => {
+  res.status(200).send({ message: "Hello Everyone!" });
+});
 
-## `stackMiddleware`
-With `stackMiddleware`, you can compose multiple middleware together into a single middleware. This builds directly on top of `mergeMiddleware` and attaches a `add` method to the middleware that allows you to add infinite middleware to the stack!
+handler.post((req, res: NextApiResponse<{ message: string; user?: User }>) => {
+  res.status(200).send({ message: "Hello user!", user: req.user });
+});
 
-For example, given:
-```typescript
-const middleware = stackMiddleware(middlewareA).add(middlewareB);
-
-middleware(handler);
-```
-
-The middleware will be applied as follows:
-```typescript
-middlewareA(middlewareB(handler))
-```
-
-### Usage
-
-1. We will define another middleware, `authMiddleware`, that checks for a user cookie and attaches the user to the request object:
-
-**Middleware 3: `authMiddleware`**
-```ts
-// lib/auth-middleware.ts
-export const authMiddleware = createMiddleware<
-  { user: { id: string } },
-  { message: string }
->(async (req, res, next) => {
-  const user = await getUserFromCookie(req.cookies);
-  if (!user) {
-    res.status(401).send({ message: "unauthorized" });
-    return;
+handler.delete(
+  (req, res: NextApiResponse<{ message: string; user?: User }>) => {
+    res.status(200).send({ message: "Hello admin!", user: req.user });
   }
+);
 
-  req.user = user;
-  await next();
-});
+export default handler;
 ```
 
-2. Assemble different middleware into a single public middleware, and then extend the public middleware with the auth middleware to create a protected middleware:
+# Ideas and Use-Cases 💡
+
+## Request Logging
 ```ts
-// lib/middleware.ts
-import { stackMiddleware } from "nextjs-handler-middleware";
+import { NextApiRequest, NextApiResponse } from "next";
+import { createMiddleware } from "../../../../dist";
 
-import { loggerMiddleware } from "./logger-middleware";
-import { authMiddleware } from "./auth-middleware";
-import { dbConnectMiddleware } from "./db-middleware";
+export const loggingMiddleware = createMiddleware(
+  async (req, res: NextApiResponse<{ message: string }>, next) => {
+    console.log(`[${req.method}] ${req.url} started`);
 
-export const publicMiddleware = stackMiddleware(loggerMiddleware).add(dbConnectMiddleware);
-export const protectedMiddleware = publicMiddleware.add(authMiddleware);
+    try {
+      await next();
+      console.log(
+        `[${req.method}] ${req.url} completed (${Date.now() - req.startTime}ms)`
+      );
+    } catch (e) {
+      console.error(
+        `[${req.method}] ${req.url} errored (${Date.now() - req.startTime}ms)`,
+        e
+      );
+      res.status(500).send({ message: "Request failed" });
+    }
+  }
+);
 ```
 
-3. Now, for public Next.js API routes, we can use the `publicMiddleware` to wrap them, and for private Next.js API routes, we can use the `protectedMiddleware` to wrap them instead to secure such routes.
-
-**Public API Routes**
+## Database Connections (Mongoose)
 ```ts
-// pages/api/hello.ts
-import { publicMiddleware } from "../../lib/middleware";
-
-export default publicMiddleware(async function handler (req, res) {
-  res.status(200).send({ message: `hello world!` });
-});
-```
-
-**Private API Routes**
-```ts
-// pages/api/admin.ts
-import { protectedMiddleware } from "../../lib/middleware";
-
-export default protectedMiddleware(async function handler (req, res) {
-  res.status(200).send({ message: `hello ${req.user.id}` }); // req.user is defined and strongly typed by middleware
-});
-```
-
-## `chainMiddleware`
-This is very similar to `stackMiddleware`, except that it applies the middleware in the opposite order, i.e the first one added will be the first one applied.
-
-For example, given:
-```typescript
-const middleware = chainMiddleware(middlewareA).add(middlewareB);
-
-middleware(handler);
-```
-
-The middleware will be applied as follows:
-```typescript
-middlewareB(middlewareA(handler))
-```
-
-## `createMiddleware` + `zod` Request Validation
-In addition to the examples above, you can also perform request validation using the middleware, and
-then have strong type definitions for the request body for post requests.
-
-1. Define the body validator middleware
-```ts
-// lib/validate-body-middleware.ts
-import { z } from "zod";
+import { NextApiRequest, NextApiResponse } from "next";
 import { createMiddleware } from "nextjs-handler-middleware";
+
+import { dbConnect } from "lib/dbConnect"; // Source: https://github.com/vercel/next.js/blob/canary/examples/with-mongodb-mongoose/lib/dbConnect.js
+
+export const dbConnectMiddleware = createMiddleware(
+  async (req, res: NextApiResponse<{ message: string }>, next) => {
+    await dbConnect();
+    next();
+  }
+);
+```
+
+
+## Request Body Validation (with Zod)
+```ts
+import { createMiddleware } from "nextjs-handler-middleware";
+import { z } from "zod";
 
 export function bodyValidatorMiddleware<S extends z.Schema>(schema: S) {
   return createMiddleware<{ body: z.infer<S> }>((req, res, next) => {
-    const shouldValidateBody = req.method && /post/i.test(req.method);
-    
-    if (!shouldValidateBody) {
-      next();
-      return;
-    }
-
     const parsed = schema.safeParse(req.body);
     if (parsed.success) {
       req.body = parsed.data;
@@ -211,98 +263,144 @@ export function bodyValidatorMiddleware<S extends z.Schema>(schema: S) {
     }
   });
 }
-
 ```
 
-2. Use the middleware in your Next.js API route
-
-```ts
-// pages/api/hello.ts
-import { protectedMiddleware } from "../../lib/middleware";
-import { validateBodyMiddleware } from "../../lib/validate-body-middleware";
+**Caveat:** For this, we only want to apply it to POST/PATCH/PUT requests where we expect to receive a request body. Here, we can leverage `createHandler` to selectively apply the middleware.
+```typescript
+//pages/api/user/[id].ts
+import { createHandler, stackMiddleware } from "nextjs-auth-middleware";
+import { userRestrictedMiddleware } from "lib/middleware";
 import { z } from "zod";
 
-const schema = z.object({
-  name: z.string(),
+const userSchema = z.object({
+  email: z.string().email(),
+  username: z.string().min(4),
+  age: z.number().positive(),
 });
 
-const middleware = protectedMiddleware.add(validateBodyMiddleware(schema));
+const userUpdateSchema = userSchema.partial();
 
-export default middleware(async function handler (req, res) {
-    res.status(200).send({ message: `hello ${req.body.name}` }); // req.body is defined and strongly typed by middleware
-  });
-```
-
-## `createHandler`
-The `createHandler` function can be used to create a NextJS API handler with specific handlers for each request method. It supports a `middleware` configuration option that let's you specify middleware to be executed for each request method.
-
-### Usage: `createHandler` + Protected and Public Routes per Method
-```ts
-// pages/api/hello.ts
-import { createHandler } from "nextjs-handler-middleware";
-import { protectedMiddleware, publicMiddleware } from "../../lib/middleware";
+const baseMiddleware = stackMiddleware(loggerMiddleware).add(dbConnectMiddleware).add(authMiddleware)
 
 const handler = createHandler({
   middleware: {
-    get: publicMiddleware,
-    post: protectedMiddleware,
+    default: baseMiddleware,
+    post: baseMiddleware.add(bodyValidatorMiddleware(userUpdateSchema)),
   },
-})
+});
 
-handler.get((req, res) => {
-  res.status(200).send({ message: `Hello from public route!` });
-})
+handler.post(async (req, res) => {
+  const updatedUser = await updateUserById(req.query.id, req.body);
+  // req.body: { email: ..., username: ..., age: ...}
+  
+  res.status(200).json({
+    message: `User updated!`,
+    updatedUser 
+  });
+});
 
-handler.post((req, res) => {
-  res.status(200).send({ message: `Hello from protected route!`, user: req.user });
-})
+handler.get(async (req, res) => {
+  const user = await getUserById(req.query.id);
+  res.status(200).json({
+    message: "Hello World",
+  });
+});
 
 export default handler;
 ```
 
-## Directly Invoking Middleware
-When a middleware is invoked, it returns a new handler that encapsulates both the middleware's logic and the supplied handler's logic. Invoking this returned handler with request and response objects will actually fulfill the request.
+## With Other Next.js 3rd-party Handlers (e.g TRPC, NextAuth)
 
-Executing middleware manually is useful when we want to apply middleware under certain specific criteria. For example, similar to `createHandler` above, we can perform authentication only for POST requests as follows:
+**TRPC**
+```typescript
+// pages/api/trpc/[trpc].ts
 
-```ts
-// pages/api/hello.ts
-import { authMiddleware, publicMiddleware } from "../../lib/middleware";
+import * as trpcNext from '@trpc/server/adapters/next';
+import { withDbConnect } from 'lib';
+import { createContext } from 'server/context';
+import { appRouter } from '../../../server/routers/_app';
 
-// Invoke authMiddleware directly to get POST handler with authentication logic
-const postHandler = authMiddleware((req, res) => {
-  // Responding to the request
-  res.status(200).send({ message: `hello from protected!`, user: req.user });
-});
+const middleware = stackMiddleware(loggerMiddleware).add(dbConnectMiddleware)
 
-// We are wrapping entire handler in public middleware for base logging + db connection logic
-export default publicMiddleware(function handler(req, res) {
-  if (req.method === "POST") {
-    // If POST, invoke the specific POST handler
-    postHandler(req, res);
-  } else {
-    // Otherwise respond to the request in default manner
-    res.status(200).send({ message: `hello world!` });
-  }
-});
+export default middleware(
+  trpcNext.createNextApiHandler({
+    router: appRouter,
+    createContext,
+  })
+);
 ```
 
+**NextAuth/Auth.js**
+```typescript
+// pages/api/auth/[...nextauth].ts
 
-## A Note on Handler Request Parameter Types
-The types strategy in this package automatically makes all middleware request parameter extensions optional to 
-guard against mistakes such as forgetting to set the parameter in the middleware. For example consider the
-following where we forget to set the `emoji` parameter:
+import NextAuth, { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import { JwtPayload } from 'lib/next-auth';
+
+const middleware = stackMiddleware(loggerMiddleware).add(dbConnectMiddleware);
+
+import NextAuth from 'next-auth';
+import GithubProvider from 'next-auth/providers/github';
+
+export default middleware(
+  NextAuth({
+    providers: [
+      GithubProvider({
+        clientId: process.env.GITHUB_ID,
+        clientSecret: process.env.GITHUB_SECRET,
+      }),
+    ],
+  })
+);
+```
+
+# Notes on Types 📝
+### Merge-Left Request Parameters 
+When two middleware, A and B are combined, the request type of B is left-merged into the request type of A. In other words, all types in B add to or override the types in A.
+
+To understand "merge-left" consider the following scenario:
+```typescript
+type A = { body: any; foo: string };
+type B = { body: { name: string }; bar: string };
+
+type C = MergeLeft<A, B>; 
+//   ^? { body: { name: string }, foo: string, bar: string }
+```
+This is what makes the inferred types of the request body validator above work as intended when we combine it with other validators. The default
+'any' type of Next.js request body is overridden by the type of body inferred from the zod validator.
+
+Ideally, instead of a merge-left, a "specific-merge", which either merges left, or chooses the most specific of the types involved in the merge would be ideal. In the example above, swapping the order of the merge with a regular merge-left causes us to loose the specificity of the body type, whereas a "specific" merge would not.
 
 ```typescript
-const middleware = createMiddleware<
-  { emoji: string },
-  { message: string }
->(async (req, res, next) => {
-  await next();
+type A = { body: any; foo: string };
+type B = { body: { name: string }; bar: string };
+
+type C = MergeLeft<B, A>; 
+//   ^? { body: any, foo: string, bar: string }
+```  
+> I am stilling exploring a solution for a "specific" merge, which should make the type-inference more resilient. For now, middleware that 
+define the types of Next.js request fields which are (`any` or `unknown`) such as `body`, must be the last middleware in the stack for its specific types to make it down to the handler.
+
+
+### Optional Request Parameters
+Middleware may attach typed parameters to a request. By default, types for middleware request parameters
+added via `createMiddleware`'s generics are made optional.
+
+I made this decision as a safety net to gaurd against not attaching the specified properties to the request.
+
+For example consider the following where we do not set the `emoji` parameter, even though we said we would in the type:
+
+```typescript
+type RequestParams = { emoji: string }
+const middleware = createMiddleware<RequestParams>(
+  async (req, res, next) => {
+    await next();
 });
 ```
 
-When we use this middleware in a handler, the `emoji` parameter will be optional and typescript should complain if we try to do stuff with it. This should help prevent bugs where you possibly forget to set the parameter in the middleware.
+When this middleware is used, the resulting type of `emoji` in the handler is made optional.
+
 ```typescript
 const handler = middleware(async (req, res) => {
   res.status(200).send({ message: `hello ${req.emoji.toString()}` }); // req.emoji is possibly undefined
@@ -316,4 +414,4 @@ const middleware = createMiddleware(async (req: NextApiRequest & { emoji: string
   await next();
 });
 ```
-In the future, I would love to explore extending something such as eslint, or the typescript compiler type-checker to automatically check that all middleware request parameter extensions are set in the middleware as a way to prevent the possibility of such bugs.
+> In the future, I would love to explore extending something such as eslint, or the typescript compiler type-checker to automatically check that all middleware request parameter extensions are set in the middleware as a way to prevent the possibility of such bugs. I would love to see a contribution that addresses this!
