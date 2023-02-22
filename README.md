@@ -361,18 +361,21 @@ export default middleware(
 ### Merge-Left Request Parameters 
 When two middleware, A and B are combined, the request type of B is left-merged into the request type of A. In other words, all types in B add to or override the types in A.
 
-To understand "merge-left" consider the following scenario:
+Here is an example of "merge-left":
 ```typescript
 type A = { body: any; foo: string };
 type B = { body: { name: string }; bar: string };
 
 type C = MergeLeft<A, B>; 
 //   ^? { body: { name: string }, foo: string, bar: string }
-```
-This is what makes the inferred types of the request body validator above work as intended when we combine it with other validators. The default
-'any' type of Next.js request body is overridden by the type of body inferred from the zod validator.
 
-Ideally, instead of a merge-left, a "specific-merge", which either merges left, or chooses the most specific of the types involved in the merge would be ideal. In the example above, swapping the order of the merge with a regular merge-left causes us to loose the specificity of the body type, whereas a "specific" merge would not.
+type D = A & B
+//   ^? { body: any, foo: string, bar: string }
+```
+Using "merge-left" over the default intersection operator (`&`) is what preserves the inferred types of the request body validator above when it is combined with other middleware. 
+With "merge-left", the default 'any' type of Next.js request `body` is overridden by the type of `body` inferred from the zod validator by the request body validator.
+
+Ideally, instead of a merge-left, a "merge-specific", which either merges left, or chooses the most specific of the types involved in the merge would be ideal. In the example above, swapping the order of the merge in the merge-left causes us to loose the specificity of the body type:
 
 ```typescript
 type A = { body: any; foo: string };
@@ -381,8 +384,8 @@ type B = { body: { name: string }; bar: string };
 type C = MergeLeft<B, A>; 
 //   ^? { body: any, foo: string, bar: string }
 ```  
-> I am stilling exploring a solution for a "specific" merge, which should make the type-inference more resilient. For now, middleware that 
-define the types of Next.js request fields which are (`any` or `unknown`) such as `body`, must be the last middleware in the stack for its specific types to make it down to the handler.
+
+> I am stilling exploring a solution for a "specific" merge, which should solve the above problem and make the type-inference more resilient. For now, middleware that define the types of Next.js request fields which are (`any` or `unknown`) such as `body`, must be the last middleware in the stack for its specific types to be chosen and make its way down to the wrapped handler via inference. I would love to see a contribution that addresses this!
 
 
 ### Optional Request Parameters
@@ -416,4 +419,4 @@ const middleware = createMiddleware(async (req: NextApiRequest & { emoji: string
   await next();
 });
 ```
-> In the future, I would love to explore extending something such as eslint, or the typescript compiler type-checker to automatically check that all middleware request parameter extensions are set in the middleware as a way to prevent the possibility of such bugs. I would love to see a contribution that addresses this!
+> In the future, I would love to explore extending something such as eslint, or the typescript compiler type-checker to automatically check that all middleware request parameter extensions are set in the middleware as a way to prevent the possibility of such bugs. I would again love to see a contribution that addresses this!
