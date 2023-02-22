@@ -76,7 +76,7 @@ A simple Next.js API middleware solution! This library was inspired by my desire
   );
   ```
   
-  **Example 2: `restrictedRoleMiddleware`**: Ensure that a user has the right role to access the API route.
+  **Example 2**: `restrictedRoleMiddleware`: Ensure that a user has the right role to access the API route.
   ```typescript
   import { getSession } from "next-auth/react";
   import { User } from "lib/types";
@@ -152,20 +152,20 @@ This is another way to combine multiple middleware. It takes in two middleware a
 
 Again, we can express the above middleware as:
 ```typescript
-  import { chainMiddleware } from "nextjs-handler-middleware"
-  import { authMiddleware, restrictedRoleMiddleware } from "lib/middleware"
-  
-  const userRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("user"));
-  const adminRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("admin"));
-  const superAdminRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("superAdmin"));
+import { chainMiddleware } from "nextjs-handler-middleware"
+import { authMiddleware, restrictedRoleMiddleware } from "lib/middleware"
+
+const userRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("user"));
+const adminRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("admin"));
+const superAdminRestrictedMiddleware = mergeMiddleware(authMiddleware, restrictedRoleMiddleware("superAdmin"));
 ```
 
 NB: Unlike `stackMiddleware` and `chainMiddleware`, `mergeMiddleware` does not have a `.add()` function for extending it. Though, you could extend it as follows if you wanted to:
 ```typescript
-  import { mergeMiddleware } from "nextjs-handler-middleware"
-  import { m1, m2, m3, m4 } from "lib/middleware"
-  
-  const mySuperMergedMiddleware = mergeMiddleware(mergeMiddleware(mergeMiddleware(m1, m2), m3), m4); // ...ad infinitum
+import { mergeMiddleware } from "nextjs-handler-middleware"
+import { m1, m2, m3, m4 } from "lib/middleware"
+
+const mySuperMergedMiddleware = mergeMiddleware(mergeMiddleware(mergeMiddleware(m1, m2), m3), m4); // ...ad infinitum
 ```
 
 ## `createHandler`
@@ -330,7 +330,7 @@ export default middleware(
 );
 ```
 
-**NextAuth/Auth.js**
+**Next-Auth/Auth.js**
 ```typescript
 // pages/api/auth/[...nextauth].ts
 
