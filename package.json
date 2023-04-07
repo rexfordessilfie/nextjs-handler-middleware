@@ -10,8 +10,9 @@
   },
   "keywords": [
     "next",
-    "nextjs",
+    "next.js",
     "handler",
+    "api",
     "middleware"
   ],
   "author": "Rexford Essilfie <rexfordessilfie09@gmail.com>",
