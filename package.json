@@ -5,6 +5,7 @@
   "repository": "https://github.com/RexfordEssilfie/nextjs-handler-middleware",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:watch": "tsc -p tsconfig.json --watch",
     "test": "ava",
     "prepublish": "npm run build"
   },
