@@ -1,10 +1,10 @@
 import {
   Middleware,
   Handler,
-  inferMiddlewareHandler,
-  inferMiddlewareReq,
+  InferMiddlewareHandler,
+  InferMiddlewareReq,
   MergedNextApiRequest,
-  AnyMiddleware,
+  AnyMiddleware
 } from "./types";
 
 /**
@@ -17,7 +17,7 @@ export const mergeMiddleware =
   <A extends Middleware, B extends AnyMiddleware>(a: A, b: B) =>
   (
     handler: Handler<
-      MergedNextApiRequest<inferMiddlewareReq<A>, inferMiddlewareReq<B>>
+      MergedNextApiRequest<InferMiddlewareReq<A>, InferMiddlewareReq<B>>
     >
   ): typeof handler =>
     a(b(handler));
@@ -29,7 +29,7 @@ export const mergeMiddleware =
  */
 export const stackMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
   const stackedMiddleware = (
-    handler: inferMiddlewareHandler<M1>
+    handler: InferMiddlewareHandler<M1>
   ): typeof handler => middlewareA(handler);
 
   stackedMiddleware.kind = "stack" as "stack";
@@ -46,7 +46,7 @@ export const stackMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
  */
 export const chainMiddleware = <M1 extends AnyMiddleware>(middlewareA: M1) => {
   const chainedMiddleware = (
-    handler: inferMiddlewareHandler<M1>
+    handler: InferMiddlewareHandler<M1>
   ): typeof handler => middlewareA(handler);
 
   chainedMiddleware.kind = "chain" as "chain";
