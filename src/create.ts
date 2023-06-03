@@ -2,8 +2,8 @@ import { NextApiResponse } from "next";
 import {
   CreateMiddlewareCb,
   Handler,
-  inferCreateMiddlewareCbReq,
-  ExtendedNextApiRequest,
+  InferCreateMiddlewareCbReq,
+  ExtendedNextApiRequest
 } from "./types";
 
 /**
@@ -31,7 +31,7 @@ export function createMiddleware<
       // Run the callback. Cast req to the type of callback's req
       // since we assume deps are already attached to the request
       return await callback(
-        req as inferCreateMiddlewareCbReq<typeof callback>,
+        req as InferCreateMiddlewareCbReq<typeof callback>,
         res as MRes,
         next
       );

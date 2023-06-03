@@ -18,7 +18,7 @@ export type AnyMiddleware = Middleware<AnyHandler>;
 /**
  * Helper type to infer the middleware's handler argument request type
  */
-export type inferMiddlewareReq<M extends Middleware<any>> = Parameters<
+export type InferMiddlewareReq<M extends Middleware<any>> = Parameters<
   Parameters<M>[0]
 >[0];
 
@@ -33,7 +33,7 @@ export type CreateMiddlewareCb<
 /**
  * Helper type to infer the callback's request type
  */
-export type inferCreateMiddlewareCbReq<
+export type InferCreateMiddlewareCbReq<
   C extends CreateMiddlewareCb<Req, Res>,
   Req extends NextApiRequest = any,
   Res extends NextApiResponse = any
@@ -42,7 +42,7 @@ export type inferCreateMiddlewareCbReq<
 /**
  * Helper type to infer the middleware's handler argument request type
  */
-export type inferMiddlewareHandler<W extends AnyMiddleware> = Parameters<W>[0];
+export type InferMiddlewareHandler<W extends AnyMiddleware> = Parameters<W>[0];
 
 /**
  * Merge values from U into T, replacing types for existing keys in T with the types of U
@@ -98,7 +98,7 @@ export type CreateHandlerConfig = {
  * Infers the middleware type from the config. Checks for the specified method
  * then defaults to the type of the default middleware, otherwise returns undefined.
  */
-export type inferCreateHandlerConfig<
+export type InferCreateHandlerConfig<
   C extends CreateHandlerConfig,
   K extends CreateHandlerMiddlewareKeys
 > = C["middleware"] extends Record<string, AnyMiddleware>

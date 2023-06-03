@@ -318,13 +318,12 @@ export default handler;
 // pages/api/trpc/[trpc].ts
 
 import * as trpcNext from '@trpc/server/adapters/next';
-import { withDbConnect } from 'lib';
+import { loggerMiddleware } from 'lib';
 import { createContext } from 'server/context';
 import { appRouter } from '../../../server/routers/_app';
 
-const middleware = stackMiddleware(loggerMiddleware).add(dbConnectMiddleware)
 
-export default middleware(
+export default loggerMiddleware(
   trpcNext.createNextApiHandler({
     router: appRouter,
     createContext,
@@ -339,13 +338,12 @@ export default middleware(
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { JwtPayload } from 'lib/next-auth';
-
-const middleware = stackMiddleware(loggerMiddleware).add(dbConnectMiddleware);
+import { loggerMiddleware } from 'lib';
 
 import NextAuth from 'next-auth';
 import GithubProvider from 'next-auth/providers/github';
 
-export default middleware(
+export default loggerMiddleware(
   NextAuth({
     providers: [
       GithubProvider({

@@ -5,8 +5,8 @@ import {
   AnyMiddleware,
   CreateHandlerConfig,
   GenericHandler,
-  inferCreateHandlerConfig,
-  inferMiddlewareHandler,
+  InferCreateHandlerConfig,
+  InferMiddlewareHandler
 } from "./types";
 
 export const createHandler = <
@@ -26,7 +26,7 @@ export const createHandler = <
       [HTTP_METHODS.PUT]: _put,
       [HTTP_METHODS.PATCH]: _patch,
       [HTTP_METHODS.DELETE]: _delete,
-      [HTTP_METHODS.GET]: _get,
+      [HTTP_METHODS.GET]: _get
     };
 
     const method = req.method?.toUpperCase();
@@ -48,8 +48,8 @@ export const createHandler = <
 
   // Register post handler
   handler.post = <Req = NextApiRequest, Res = NextApiResponse>(
-    h: inferCreateHandlerConfig<Config, "post"> extends AnyMiddleware
-      ? inferMiddlewareHandler<inferCreateHandlerConfig<Config, "post">>
+    h: InferCreateHandlerConfig<Config, "post"> extends AnyMiddleware
+      ? InferMiddlewareHandler<InferCreateHandlerConfig<Config, "post">>
       : GenericHandler<Req, Res>
   ) => {
     const middleware = config?.middleware?.post || config?.middleware?.default;
@@ -59,8 +59,8 @@ export const createHandler = <
 
   // Register get handler
   handler.get = <Req = NextApiRequest, Res = NextApiResponse>(
-    h: inferCreateHandlerConfig<Config, "get"> extends AnyMiddleware
-      ? inferMiddlewareHandler<inferCreateHandlerConfig<Config, "get">>
+    h: InferCreateHandlerConfig<Config, "get"> extends AnyMiddleware
+      ? InferMiddlewareHandler<InferCreateHandlerConfig<Config, "get">>
       : GenericHandler<Req, Res>
   ) => {
     const middleware = config?.middleware?.get || config?.middleware?.default;
@@ -70,8 +70,8 @@ export const createHandler = <
 
   // Register patch handler
   handler.patch = <Req = NextApiRequest, Res = NextApiResponse>(
-    h: inferCreateHandlerConfig<Config, "patch"> extends AnyMiddleware
-      ? inferMiddlewareHandler<inferCreateHandlerConfig<Config, "patch">>
+    h: InferCreateHandlerConfig<Config, "patch"> extends AnyMiddleware
+      ? InferMiddlewareHandler<InferCreateHandlerConfig<Config, "patch">>
       : GenericHandler<Req, Res>
   ) => {
     const middleware = config?.middleware?.patch || config?.middleware?.default;
@@ -81,8 +81,8 @@ export const createHandler = <
 
   // Register put handler
   handler.put = <Req = NextApiRequest, Res = NextApiResponse>(
-    h: inferCreateHandlerConfig<Config, "put"> extends AnyMiddleware
-      ? inferMiddlewareHandler<inferCreateHandlerConfig<Config, "put">>
+    h: InferCreateHandlerConfig<Config, "put"> extends AnyMiddleware
+      ? InferMiddlewareHandler<InferCreateHandlerConfig<Config, "put">>
       : GenericHandler<Req, Res>
   ) => {
     const middleware = config?.middleware?.put || config?.middleware?.default;
@@ -92,8 +92,8 @@ export const createHandler = <
 
   // Register delete handler
   handler.delete = <Req = NextApiRequest, Res = NextApiResponse>(
-    h: inferCreateHandlerConfig<Config, "delete"> extends AnyMiddleware
-      ? inferMiddlewareHandler<inferCreateHandlerConfig<Config, "delete">>
+    h: InferCreateHandlerConfig<Config, "delete"> extends AnyMiddleware
+      ? InferMiddlewareHandler<InferCreateHandlerConfig<Config, "delete">>
       : GenericHandler<Req, Res>
   ) => {
     const middleware =
